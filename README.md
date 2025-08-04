@@ -1,2 +1,2 @@
-# MY_COMMUNITY
+# my_community
 
