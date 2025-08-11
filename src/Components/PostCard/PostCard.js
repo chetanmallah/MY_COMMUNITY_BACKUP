@@ -8,6 +8,7 @@
 //   FlatList,
 //   Dimensions,
 //   ActivityIndicator,
+//   Alert,
 // } from "react-native";
 // import Icon from "react-native-vector-icons/Feather";
 // import { useNavigation } from "@react-navigation/native";
@@ -34,8 +35,29 @@
 //   const navigation = useNavigation();
 //   const [expandedPosts, setExpandedPosts] = useState({});
 
+//   const [visibleReplies, setVisibleReplies] = useState({});
+//   const toggleReplies = (commentId) => {
+//     setVisibleReplies((prev) => ({
+//       ...prev,
+//       [commentId]: !prev[commentId],
+//     }));
+//   };
+
+//   const [currentUserId, setCurrentUserId] = useState(null);
+
+//   useEffect(() => {
+//     const fetchCurrentUserId = async () => {
+//       const id = await AsyncStorage.getItem("userId");
+//       console.log("👤 Current logged-in user ID:", id);
+//       setCurrentUserId(Number(id));
+//     };
+//     fetchCurrentUserId();
+//   }, []);
+
 //   const [commentModalVisible, setCommentModalVisible] = useState(false);
 //   const [selectedPostId, setSelectedPostId] = useState(null);
+//   const [selectedPost, setSelectedPost] = useState(null); // ✅ Add this
+
 //   const [comments, setComments] = useState([]);
 //   const [loadingComments, setLoadingComments] = useState(false);
 //   const [newComment, setNewComment] = useState("");
@@ -54,7 +76,7 @@
 //         const userId = await AsyncStorage.getItem("userId");
 
 //         const response = await fetch(
-//           `http://192.168.1.116:8080/api/users/getUploaded-post/${activeCategory}?currentUserId=${userId}`,
+//           `http://192.168.0.9:8089/api/users/getUploaded-post/${activeCategory}?currentUserId=${userId}`,
 //           {
 //             headers: {
 //               Authorization: `Bearer ${token}`,
@@ -99,59 +121,184 @@
 //     return () => backHandler.remove();
 //   }, [commentModalVisible]);
 
-// const handleAddComment = async () => {
-//   if (!newComment.trim()) {
-//     console.log("🚫 Empty comment, skipping post.");
-//     return;
-//   }
+//   const flattenReplies = (replies) => {
+//     const flat = [];
 
-//   const token = await AsyncStorage.getItem("token");
-//   const userId = await AsyncStorage.getItem("userId");
+//     const recurse = (arr) => {
+//       for (const reply of arr) {
+//         flat.push(reply);
+//         if (reply.replies && reply.replies.length > 0) {
+//           recurse(reply.replies);
+//         }
+//       }
+//     };
 
-//   const endpoint = replyingTo
-//     ? `http://192.168.1.116:8080/api/users/reply/${replyingTo}`
-//     : `http://192.168.1.116:8080/api/users/comment/${selectedPostId}`;
+//     recurse(replies);
+//     return flat;
+//   };
 
-//   const bodyData = replyingTo
-//     ? { userId: Number(userId), text: newComment.trim() } // ✅ FIXED
-//     : { text: newComment.trim(), parentCommentId: null };
+//   const isPostOwner = () => {
+//     if (!selectedPost || !currentUserId) return false;
 
-//   console.log("📤 Posting to:", endpoint);
-//   console.log("📦 Payload:", bodyData);
+//     console.log("🔍 Post owner check");
+//     console.log("📮 uploaderId:", selectedPost.uploaderId);
+//     console.log("👤 currentUserId:", currentUserId);
 
-//   try {
-//     const res = await fetch(endpoint, {
-//       method: "POST",
-//       headers: {
-//         Authorization: `Bearer ${token}`,
-//         "Content-Type": "application/json",
-//       },
-//       body: JSON.stringify(bodyData),
-//     });
+//     return selectedPost.uploaderId === currentUserId;
+//   };
 
-//     const data = await res.json();
+//   const renderReplies = (replies) => {
+//     return replies.map((reply, index) => (
+//       <View
+//         key={reply.replyId || index}
+//         style={{ marginTop: 10, marginLeft: 20 }}
+//       >
+//         <View style={styles.commentHeader}>
+//           <Image
+//             source={{ uri: "https://i.pravatar.cc/150?img=3" }}
+//             style={styles.commentUserImage}
+//           />
+//           <View style={{ flex: 1 }}>
+//             <Text style={styles.commentUser}>{reply.replierName}</Text>
 
-//     if (res.ok) {
-//       console.log("✅ Posted successfully:", data);
-//       setNewComment("");
-//       setReplyingTo(null);
-//       setReplyToUser(null);
-//       fetchComments(selectedPostId);
-//     } else {
-//       console.warn("❌ Post failed:", data);
+//             <Text style={styles.commentText}>
+//               <Text style={{ fontWeight: "bold", color: "#333" }}>
+//                 @{reply.repliedToName}
+//               </Text>{" "}
+//               {reply.text}
+//             </Text>
+
+//             <Text style={styles.commentTime}>
+//               {new Date(reply.repliedAt).toLocaleString()}
+//             </Text>
+
+//             <View
+//               style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+//             >
+//               <TouchableOpacity
+//                 onPress={() => {
+//                   setReplyingTo(reply.replyId);
+//                   setReplyToUser(reply.replierName);
+//                 }}
+//               >
+//                 <Text style={styles.replyBtn}>Reply</Text>
+//               </TouchableOpacity>
+
+//               {(reply.replierId === currentUserId ||
+//                 isPostOwner(selectedPostId)) && (
+//                 <TouchableOpacity
+//                   onPress={() =>
+//                     Alert.alert(
+//                       "Delete Reply",
+//                       "Are you sure you want to delete this reply?",
+//                       [
+//                         { text: "Cancel", style: "cancel" },
+//                         {
+//                           text: "Delete",
+//                           style: "destructive",
+//                           onPress: () =>
+//                             handleDeleteCommentOrReply(reply.replyId),
+//                         },
+//                       ]
+//                     )
+//                   }
+//                 >
+//                   <Text style={{ color: "red", marginTop: 5 }}>Delete</Text>
+//                 </TouchableOpacity>
+//               )}
+//             </View>
+//           </View>
+//         </View>
+//       </View>
+//     ));
+//   };
+
+//   // delt commetn
+//   const handleDeleteCommentOrReply = async (id) => {
+//     const token = await AsyncStorage.getItem("token");
+
+//     try {
+//       const res = await fetch(
+//         `http://192.168.0.9:8089/api/users/comment/${id}`,
+//         {
+//           method: "DELETE",
+//           headers: {
+//             Authorization: `Bearer ${token}`,
+//           },
+//         }
+//       );
+
+//       const data = await res.json();
+
+//       if (res.ok) {
+//         console.log("✅ Deleted:", data);
+//         fetchComments(selectedPostId); // Refresh
+//       } else {
+//         console.warn("❌ Delete failed:", data);
+//       }
+//     } catch (err) {
+//       console.error("🔥 Error deleting:", err);
 //     }
-//   } catch (err) {
-//     console.error("🔥 Network error while posting comment:", err);
-//   }
-// };
+//   };
 
+//   const handleAddComment = async () => {
+//     if (!newComment.trim()) {
+//       console.log("🚫 Empty comment, skipping post.");
+//       return;
+//     }
+
+//     const token = await AsyncStorage.getItem("token");
+//     const userId = await AsyncStorage.getItem("userId");
+
+//     const endpoint = replyingTo
+//       ? `http://192.168.0.9:8089/api/users/reply/${replyingTo}`
+//       : `http://192.168.0.9:8089/api/users/comment/${selectedPostId}`;
+
+//     const bodyData = replyingTo
+//       ? {
+//           userId: Number(userId),
+//           text: newComment.trim(),
+//           repliedToUser: replyToUser, // ✅ Add this field
+//         }
+//       : { text: newComment.trim(), parentCommentId: null };
+
+//     console.log("📤 Posting to:", endpoint);
+//     console.log("📦 Payload:", bodyData);
+
+//     try {
+//       const res = await fetch(endpoint, {
+//         method: "POST",
+//         headers: {
+//           Authorization: `Bearer ${token}`,
+//           "Content-Type": "application/json",
+//         },
+//         body: JSON.stringify(bodyData),
+//       });
+
+//       const data = await res.json();
+
+//       if (res.ok) {
+//         console.log("✅ Posted successfully:", data);
+//         setNewComment("");
+//         setReplyingTo(null);
+//         setReplyToUser(null);
+//         fetchComments(selectedPostId);
+//       } else {
+//         console.warn("❌ Post failed:", data);
+//       }
+//     } catch (err) {
+//       console.error("🔥 Network error while posting comment:", err);
+//     }
+//   };
+
+//   // render reply
 //   const fetchComments = async (postId) => {
 //     try {
 //       setLoadingComments(true);
 //       const token = await AsyncStorage.getItem("token");
 
 //       const response = await fetch(
-//         `http://192.168.1.116:8080/api/users/comments/${postId}`,
+//         `http://192.168.0.9:8089/api/users/comments/${postId}`,
 //         {
 //           headers: {
 //             Authorization: `Bearer ${token}`,
@@ -166,6 +313,7 @@
 //       console.log("🧾 Response shape:", JSON.stringify(data, null, 2));
 
 //       setComments(data.comments || []);
+//       setSelectedPost(data); // ✅ Now you’re storing the full post info including uploaderId
 //     } catch (error) {
 //       console.error("❌ Error fetching comments:", error);
 //     } finally {
@@ -185,7 +333,7 @@
 //       const userId = await AsyncStorage.getItem("userId");
 
 //       const response = await fetch(
-//         `http://192.168.1.116:8080/api/users/like/${postId}`,
+//         `http://192.168.0.9:8089/api/users/like/${postId}`,
 //         {
 //           method: "POST",
 //           headers: {
@@ -366,69 +514,98 @@
 //                           {new Date(comment.commentedAt).toLocaleString()}
 //                         </Text>
 
-//                         <TouchableOpacity
-//                           onPress={() => {
-//                             console.log(
-//                               "↪️ Replying to comment ID:",
-//                               comment.id,
-//                               "by",
-//                               comment.commenterName
-//                             );
-//                             setReplyingTo(comment.commentId);
-//                             setReplyToUser(comment.commenterName);
+//                         <View
+//                           style={{
+//                             flexDirection: "row",
+//                             alignItems: "center",
+//                             gap: 10,
 //                           }}
 //                         >
-//                           <Text style={styles.replyBtn}>Reply</Text>
-//                         </TouchableOpacity>
+//                           <TouchableOpacity
+//                             onPress={() => {
+//                               console.log(
+//                                 "↪️ Replying to comment ID:",
+//                                 comment.id,
+//                                 "by",
+//                                 comment.commenterName
+//                               );
+//                               setReplyingTo(comment.commentId);
+//                               setReplyToUser(comment.commenterName);
+//                             }}
+//                           >
+//                             <Text style={styles.replyBtn}>Reply</Text>
+//                           </TouchableOpacity>
 
-//                         {/* Replies */}
-//                         {/* Replies */}
-//                         {comment.replies?.length > 0 && (
-//                           <View style={styles.repliesContainer}>
-//                             {comment.replies.map((reply, replyIndex) => (
-//                               <View key={replyIndex} style={styles.replyBlock}>
-//                                 <View
-//                                   style={{
-//                                     flexDirection: "row",
-//                                     alignItems: "center",
-//                                   }}
+//                           {/* ✅ Show delete button if current user is post owner */}
+//                           {(() => {
+//                             const post = posts.find(
+//                               (p) => p.id === selectedPostId
+//                             );
+//                             const isCommentOwner =
+//                               comment.commenterId === currentUserId;
+//                             const isUploader = isPostOwner(selectedPostId);
+
+//                             if (isCommentOwner || isUploader) {
+//                               return (
+//                                 <TouchableOpacity
+//                                   onPress={() =>
+//                                     Alert.alert(
+//                                       "Delete Comment",
+//                                       "Are you sure you want to delete this comment?",
+//                                       [
+//                                         { text: "Cancel", style: "cancel" },
+//                                         {
+//                                           text: "Delete",
+//                                           style: "destructive",
+//                                           onPress: () =>
+//                                             handleDeleteCommentOrReply(
+//                                               comment.commentId
+//                                             ),
+//                                         },
+//                                       ]
+//                                     )
+//                                   }
 //                                 >
-//                                   <Image
-//                                     source={{
-//                                       uri: "https://i.pravatar.cc/150?img=3",
-//                                     }}
-//                                     style={styles.replyUserImage}
-//                                   />
-//                                   <View style={{ flex: 1 }}>
-//                                     <Text style={styles.replyUser}>
-//                                       {reply.replierName}
-//                                     </Text>
-//                                     <Text style={styles.replyText}>
-//                                       {reply.text}
-//                                     </Text>
-//                                     <Text style={styles.replyTime}>
-//                                       {new Date(
-//                                         reply.repliedAt
-//                                       ).toLocaleString()}
-//                                     </Text>
+//                                   <Text style={{ color: "red" }}>Delete</Text>
+//                                 </TouchableOpacity>
+//                               );
+//                             }
+//                             return null;
+//                           })()}
+//                         </View>
 
-//                                     {/* ✅ REPLY BUTTON FIXED */}
-//                                     <TouchableOpacity
-//                                       onPress={() => {
-//                                         setReplyingTo(reply.replyId); // this is the reply ID you are responding to
-//                                         setReplyToUser(reply.replierName); // sets who you're replying to
-//                                      console.log("Replying to commentId:", reply.replyId);
+//                         {/* Replies */}
+//                         {/* Replies */}
 
-//                                       }}
+//                         {comment.replies && comment.replies.length > 0 && (
+//                           <>
+//                             {visibleReplies[comment.commentId]
+//                               ? renderReplies(flattenReplies(comment.replies))
+//                               : renderReplies([
+//                                   flattenReplies(comment.replies)[0],
+//                                 ])}
 
-//                                     >
-//                                       <Text style={styles.replyBtn}>Replyyyyy</Text>
-//                                     </TouchableOpacity>
-//                                   </View>
-//                                 </View>
-//                               </View>
-//                             ))}
-//                           </View>
+//                             {comment.replies.length > 1 && (
+//                               <TouchableOpacity
+//                                 onPress={() => toggleReplies(comment.commentId)}
+//                                 style={{ marginTop: 5, marginLeft: 20 }}
+//                               >
+//                                 <Text
+//                                   style={{ color: "#6200ee", fontSize: 13 }}
+//                                 >
+//                                   {visibleReplies[comment.commentId]
+//                                     ? "Hide Replies"
+//                                     : `View ${
+//                                         comment.replies.length - 1
+//                                       } more repl${
+//                                         comment.replies.length - 1 === 1
+//                                           ? "y"
+//                                           : "ies"
+//                                       }`}
+//                                 </Text>
+//                               </TouchableOpacity>
+//                             )}
+//                           </>
 //                         )}
 //                       </View>
 //                     </View>
@@ -780,8 +957,9 @@
 // });
 
 // export default PostCard;
+// //
 
-/// adding reply fetature to the replied comments
+//  adding instagram type on press delet button
 
 import React, { useEffect, useState } from "react";
 import {
@@ -819,6 +997,10 @@ const PostCard = ({ activeCategory }) => {
   const [error, setError] = useState(null);
   const navigation = useNavigation();
   const [expandedPosts, setExpandedPosts] = useState({});
+  const [showDeleteForId, setShowDeleteForId] = useState(null);
+  const [longPressedReplyId, setLongPressedReplyId] = useState(null);
+  
+
 
   const [visibleReplies, setVisibleReplies] = useState({});
   const toggleReplies = (commentId) => {
@@ -861,7 +1043,7 @@ const PostCard = ({ activeCategory }) => {
         const userId = await AsyncStorage.getItem("userId");
 
         const response = await fetch(
-          `http://192.168.1.116:8080/api/users/getUploaded-post/${activeCategory}?currentUserId=${userId}`,
+          `http://192.168.0.9:8089/api/users/getUploaded-post/${activeCategory}?currentUserId=${userId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -934,8 +1116,11 @@ const PostCard = ({ activeCategory }) => {
 
   const renderReplies = (replies) => {
     return replies.map((reply, index) => (
-      <View
+      <TouchableOpacity
         key={reply.replyId || index}
+        activeOpacity={0.8}
+        onLongPress={() => setShowDeleteForId(reply.replyId)}
+        onPress={() => setShowDeleteForId(null)}
         style={{ marginTop: 10, marginLeft: 20 }}
       >
         <View style={styles.commentHeader}>
@@ -970,111 +1155,130 @@ const PostCard = ({ activeCategory }) => {
               </TouchableOpacity>
 
               {(reply.replierId === currentUserId ||
-                isPostOwner(selectedPostId)) && (
-                <TouchableOpacity
-                  onPress={() =>
-                    Alert.alert(
-                      "Delete Reply",
-                      "Are you sure you want to delete this reply?",
-                      [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                          text: "Delete",
-                          style: "destructive",
-                          onPress: () =>
-                            handleDeleteCommentOrReply(reply.replyId),
-                        },
-                      ]
-                    )
-                  }
-                >
-                  <Text style={{ color: "red", marginTop: 5 }}>Delete</Text>
-                </TouchableOpacity>
-              )}
+                isPostOwner(selectedPostId)) &&
+                showDeleteForId === reply.replyId && (
+                  <TouchableOpacity
+                    onPress={() =>
+                      Alert.alert(
+                        "Delete Reply",
+                        "Are you sure you want to delete this reply?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Delete",
+                            style: "destructive",
+                            onPress: () =>
+                              handleDeleteCommentOrReply(reply.replyId),
+                          },
+                        ]
+                      )
+                    }
+                  >
+                    <AntDesign name="delete" size={20} color="red" />
+                  </TouchableOpacity>
+                )}
             </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     ));
   };
 
   // delt commetn
-  const handleDeleteCommentOrReply = async (id) => {
-    const token = await AsyncStorage.getItem("token");
+const handleDeleteCommentOrReply = async (id) => {
+  const token = await AsyncStorage.getItem("token");
 
-    try {
-      const res = await fetch(
-        `http://192.168.1.116:8080/api/users/comment/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await res.json();
-
-      if (res.ok) {
-        console.log("✅ Deleted:", data);
-        fetchComments(selectedPostId); // Refresh
-      } else {
-        console.warn("❌ Delete failed:", data);
-      }
-    } catch (err) {
-      console.error("🔥 Error deleting:", err);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!newComment.trim()) {
-      console.log("🚫 Empty comment, skipping post.");
-      return;
-    }
-
-    const token = await AsyncStorage.getItem("token");
-    const userId = await AsyncStorage.getItem("userId");
-
-    const endpoint = replyingTo
-      ? `http://192.168.1.116:8080/api/users/reply/${replyingTo}`
-      : `http://192.168.1.116:8080/api/users/comment/${selectedPostId}`;
-
-    const bodyData = replyingTo
-      ? {
-          userId: Number(userId),
-          text: newComment.trim(),
-          repliedToUser: replyToUser, // ✅ Add this field
-        }
-      : { text: newComment.trim(), parentCommentId: null };
-
-    console.log("📤 Posting to:", endpoint);
-    console.log("📦 Payload:", bodyData);
-
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
+  try {
+    const res = await fetch(
+      `http://192.168.0.9:8089/api/users/comment/${id}`,
+      {
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify(bodyData),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        console.log("✅ Posted successfully:", data);
-        setNewComment("");
-        setReplyingTo(null);
-        setReplyToUser(null);
-        fetchComments(selectedPostId);
-      } else {
-        console.warn("❌ Post failed:", data);
       }
-    } catch (err) {
-      console.error("🔥 Network error while posting comment:", err);
+    );
+
+    // ✅ Always read as text first
+    const raw = await res.text();
+
+    // Try parse to JSON
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = raw; // plain text
     }
-  };
+
+    if (res.ok) {
+      console.log("✅ Deleted:", data);
+      fetchComments(selectedPostId);
+    } else {
+      console.warn("❌ Delete failed:", data);
+    }
+  } catch (err) {
+    console.error("🔥 Error deleting:", err);
+  }
+};
+
+
+const handleAddComment = async () => {
+  if (!newComment.trim()) {
+    console.log("🚫 Empty comment, skipping post.");
+    return;
+  }
+
+  const token = await AsyncStorage.getItem("token");
+  const userId = await AsyncStorage.getItem("userId");
+
+  const endpoint = replyingTo
+    ? `http://192.168.0.9:8089/api/users/reply/${replyingTo}`
+    : `http://192.168.0.9:8089/api/users/comment/${selectedPostId}`;
+
+  const bodyData = replyingTo
+    ? {
+        userId: Number(userId),
+        text: newComment.trim(),
+        repliedToUser: replyToUser,
+      }
+    : { text: newComment.trim(), parentCommentId: null };
+
+  console.log("📤 Posting to:", endpoint);
+  console.log("📦 Payload:", bodyData);
+
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(bodyData),
+    });
+
+    // ✅ Always read once
+    const raw = await res.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = raw;
+    }
+
+    if (res.ok) {
+      console.log("✅ Posted successfully:", data);
+      setNewComment("");
+      setReplyingTo(null);
+      setReplyToUser(null);
+      fetchComments(selectedPostId);
+    } else {
+      console.warn("❌ Post failed:", data);
+    }
+  } catch (err) {
+    console.error("🔥 Network error while posting comment:", err);
+  }
+};
+
 
   // render reply
   const fetchComments = async (postId) => {
@@ -1083,7 +1287,7 @@ const PostCard = ({ activeCategory }) => {
       const token = await AsyncStorage.getItem("token");
 
       const response = await fetch(
-        `http://192.168.1.116:8080/api/users/comments/${postId}`,
+        `http://192.168.0.9:8089/api/users/comments/${postId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1118,7 +1322,7 @@ const PostCard = ({ activeCategory }) => {
       const userId = await AsyncStorage.getItem("userId");
 
       const response = await fetch(
-        `http://192.168.1.116:8080/api/users/like/${postId}`,
+        `http://192.168.0.9:8089/api/users/like/${postId}`,
         {
           method: "POST",
           headers: {
@@ -1282,7 +1486,13 @@ const PostCard = ({ activeCategory }) => {
             <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
               {comments.length > 0 ? (
                 comments.map((comment, index) => (
-                  <View key={index} style={styles.commentBlock}>
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.commentBlock}
+                    activeOpacity={0.8}
+                    onLongPress={() => setShowDeleteForId(comment.commentId)}
+                    onPress={() => setShowDeleteForId(null)}
+                  >
                     <View style={styles.commentHeader}>
                       <Image
                         source={{
@@ -1308,12 +1518,6 @@ const PostCard = ({ activeCategory }) => {
                         >
                           <TouchableOpacity
                             onPress={() => {
-                              console.log(
-                                "↪️ Replying to comment ID:",
-                                comment.id,
-                                "by",
-                                comment.commenterName
-                              );
                               setReplyingTo(comment.commentId);
                               setReplyToUser(comment.commenterName);
                             }}
@@ -1321,7 +1525,6 @@ const PostCard = ({ activeCategory }) => {
                             <Text style={styles.replyBtn}>Reply</Text>
                           </TouchableOpacity>
 
-                          {/* ✅ Show delete button if current user is post owner */}
                           {(() => {
                             const post = posts.find(
                               (p) => p.id === selectedPostId
@@ -1330,7 +1533,10 @@ const PostCard = ({ activeCategory }) => {
                               comment.commenterId === currentUserId;
                             const isUploader = isPostOwner(selectedPostId);
 
-                            if (isCommentOwner || isUploader) {
+                            if (
+                              (isCommentOwner || isUploader) &&
+                              showDeleteForId === comment.commentId
+                            ) {
                               return (
                                 <TouchableOpacity
                                   onPress={() =>
@@ -1351,14 +1557,17 @@ const PostCard = ({ activeCategory }) => {
                                     )
                                   }
                                 >
-                                  <Text style={{ color: "red" }}>Delete</Text>
+                                  <AntDesign
+                                    name="delete"
+                                    size={20}
+                                    color="red"
+                                  />
                                 </TouchableOpacity>
                               );
                             }
                             return null;
                           })()}
                         </View>
-
                         {/* Replies */}
                         {/* Replies */}
 
@@ -1394,7 +1603,7 @@ const PostCard = ({ activeCategory }) => {
                         )}
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))
               ) : (
                 <Text style={{ padding: 10, color: "#999" }}>

@@ -31,7 +31,8 @@
       }
     },
     "plugins": [
-      "expo-video"
+      "expo-video",
+      "expo-router"
     ]
   }
 }
